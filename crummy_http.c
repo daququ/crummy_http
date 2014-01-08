@@ -99,7 +99,7 @@ int receive_bytes(int socket, char* buffer)
 
     /* Add the total number of bytes */
     total_bytes += received_bytes;
-    /* */
+    /* Terminate the string if necessary */
     if (num_end_bytes == 2) {
       buffer[total_bytes] = '\0';
       return total_bytes;
@@ -112,6 +112,11 @@ int receive_bytes(int socket, char* buffer)
 
 void process_request(int socket, char* request_buffer)
 {
+  /* Process the request string in request buffer and
+   * tries to look up the corresponding file */
+
+  /* First determine whether the request is HTTP and whether
+   * it's a get or head request*/
   char* result = strstr(request_buffer, "HTTP/");
   char* get_result = strstr(request_buffer, "GET");
   int file, num_bytes_read, total_bytes_read;
@@ -121,18 +126,22 @@ void process_request(int socket, char* request_buffer)
   char file_buffer[100];
 
   if (result != NULL) {
+    /* Set the pointer to the start of the file path specified in the
+     * request */
     ptr = get_result != NULL ? request_buffer + 4 : request_buffer + 5;
+    /* Put a string termination byte at the end of the file path */
     *(result - 1) = 0;
+    /* Set up the file path */
     strcpy(filename, "public_html");
     strcat(filename, ptr);
-
+    /* Add an index file to the file path if there's a trailing slash */
     if (filename[strlen(filename) - 1] == '/')
       strcat(filename, "index.html");
-
+    /* Some output */
     printf("Request for file %s:", filename);
-
+    /* Try to open the file */
     file = open(filename, O_RDONLY);
-    
+    /* Send the http header response specifying whether the file was found */
     if (file == -1) {
       send_bytes(socket, "HTTP/1.0 404 NOT_FOUND\r\n");
       printf(" HTTP/1.0 404 NOT_FOUND\n");
@@ -144,33 +153,49 @@ void process_request(int socket, char* request_buffer)
 
     send_bytes(socket, "Server: Web server\r\n\r\n");
 
+    /* If the http request is a get request, try to return the file */
     if (get_result != NULL) {
 
+      /* No file, so just return a simple 404 page */
       if (file == -1) {
 	send_bytes(socket, "<html><head><title>404 Not Found</title></head>");
 	send_bytes(socket, "<body><h1>404 Not Found</h1></body></html>\r\n");
       }
+      /* File exists, so serve it up */
       else {
-
+	/* Keep track of the number of bytes read so far */
 	total_bytes_read = 0;
+	/* Read the first load of bytes */
 	num_bytes_read = read(file, file_buffer, 100);
+	/* Set the file contents pointer */
 	file_contents = NULL;
 	
 	while (num_bytes_read > 0) {
+	  /* Re-allocate memory to accomodate the next chunk of the file */
 	  file_contents = (char*)realloc((void*)file_contents,
 					 total_bytes_read + num_bytes_read);
 
 	  /* Increment the pointer to the file contents buffer ready for
 	   * writing */
 	  ptr = file_contents + total_bytes_read;
+	  /* Copy the contents of the loaded bytes to the appropriate point
+	   * in the file contents buffer */
 	  strcpy(ptr, file_buffer);
+	  /* Terminate the string we've just copied */
 	  ptr[num_bytes_read] = 0;
 
+	  /* Increment the number of bytes read and read a new segment from
+	   * the file */
 	  total_bytes_read += num_bytes_read;
 	  num_bytes_read = read(file, file_buffer, 100);
+	  /* Terminate the string at the place we've just copied up to 
+	   * to prevent string-termination issues from arising on calling
+	   * strcpy */
 	  file_buffer[num_bytes_read] = 0;
 	}
 	
+	/* Send the resulting file contents to the client, then free the
+	 * file buffer */
 	send_bytes(socket, file_contents);
 	send_bytes(socket, "\r\n");
 	free(file_contents);
