@@ -206,7 +206,7 @@ void process_request(int socket, char* request_buffer)
 
 int main(int argc, char** argv)
 {
-  short int host_port = 7890;
+  short int host_port = 8000;
   int listen_socket, accept_socket;
   struct sockaddr_in host_address, client_addr;
   socklen_t client_socket_length;
