@@ -66,45 +66,31 @@ int receive_bytes(int socket, char* buffer)
   /* Receives and loads bytes from socket into buffer until CR and NL characters
    * are received */
 
-  int i, total_bytes, received_bytes, num_end_bytes;
-  char receive_buffer[1];
-  i = 0;
-  total_bytes = 0;
+  int received_bytes, num_end_bytes;
+  char receive_buffer;
+  char* ptr = buffer;
   num_end_bytes = 0;
 
-  received_bytes = recv(socket, (void*)receive_buffer, 1, 0);
+  received_bytes = recv(socket, (void*)&receive_buffer, 1, 0);
 
   while (received_bytes > 0) {
-
-    i = 0;
     /* Determine if the terminating characters are in the 
      * received string */
-    while (i < received_bytes && num_end_bytes < 2) {
-      if (receive_buffer[i] == '\x0d' && num_end_bytes == 0)
-	num_end_bytes++;
-      else if (receive_buffer[i] == '\x0a' && num_end_bytes == 1)
-	num_end_bytes++;
-      else
-	num_end_bytes = 0;
-      i++;
+    if (receive_buffer == '\x0d' && num_end_bytes == 0)
+      num_end_bytes++;
+    else if (receive_buffer == '\x0a' && num_end_bytes == 1) {
+      *ptr = 0;
+      return strlen(buffer);
     }
-
-    /* If the terminating characters are there, offset the number
-     * of received bytes */
-    received_bytes = num_end_bytes == 2 ? i - 2 : i;
+    else
+      num_end_bytes = 0;
 
     /* Copy the bytes over to the output buffer */
-    for (i = 0; i < received_bytes; i++)
-      buffer[total_bytes + i] = receive_buffer[i];
+    *ptr = receive_buffer;
 
-    /* Add the total number of bytes */
-    total_bytes += received_bytes;
-    /* Terminate the string if necessary */
-    if (num_end_bytes == 2) {
-      buffer[total_bytes] = '\0';
-      return total_bytes;
-    }
-    received_bytes = recv(socket, (void*)receive_buffer, 1, 0);
+    received_bytes = recv(socket, (void*)&receive_buffer, 1, 0);
+
+    ptr++;
   }
 
   return received_bytes;
