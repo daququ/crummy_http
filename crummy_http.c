@@ -84,12 +84,11 @@ int receive_bytes(int socket, char* buffer)
     }
     else
       num_end_bytes = 0;
-
     /* Copy the bytes over to the output buffer */
     *ptr = receive_buffer;
-
+    /* Receive the next load of bytes */
     received_bytes = recv(socket, (void*)&receive_buffer, 1, 0);
-
+    /* Move the pointer along for the next copy */
     ptr++;
   }
 
